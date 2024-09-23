@@ -1,63 +1,62 @@
 package main
 
 import (
-	"fmt"
-	"os"
-
-	"github.com/urfave/cli/v2"
+	"github.com/gin-gonic/gin"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
+type Coffee struct {
+	ID       uint   `gorm:"primaryKey"`
+	Name     string `json:"name"`
+	Quantity int    `json:"quantity"`
+}
+
+type Recipe struct {
+	ID          uint   `gorm:"primaryKey"`
+	Name        string `json:"name"`
+	Ingredients string `json:"ingredients"`
+}
+
 func main() {
-	app := &cli.App{
-		Name:  "coffee-track",
-		Usage: "Track your coffee consumption and recipes",
-		Commands: []*cli.Command{
-			{
-				Name:  "add-coffee",
-				Usage: "Add a new coffee to the inventory",
-				Action: func(c *cli.Context) error {
-					db, err := gorm.Open(sqlite.Open("coffee.db"), &gorm.Config{})
-					if err != nil {
-						return err
-						// Should I return a panic?
-					}
-					db.AutoMigrate(&Coffee{})
-					coffee := Coffee{Name: c.Args().Get(0), Quantity: c.Int("quantity")}
-					db.Create(&coffee)
-					fmt.Printf("Coffee added: %s\n", coffee.Name)
-					return nil
-				},
-				Flags: []cli.Flag{
-					&cli.IntFlag{
-						Name:  "quantity",
-						Value: 1,
-						Usage: "Quantity of coffee to add",
-					},
-				},
-			},
-			{
-				Name:  "list-coffees",
-				Usage: "List all coffees in the inventory",
-				Action: func(c *cli.Context) error {
-					db, err := gorm.Open(sqlite.Open("coffee.db"), &gorm.Config{})
-					if err != nil {
-						return err
-					}
-					var coffees []Coffee
-					db.Find(&coffees)
-					for _, coffee := range coffees {
-						fmt.Printf("ID: %d, Name: %s, Quantity: %d\n", coffee.ID, coffee.Name, coffee.Quantity)
-					}
-					return nil
-				},
-			},
-		},
+	r := gin.Default()
+	db, err := gorm.Open(sqlite.Open("coffee.db"), &gorm.Config{})
+	if err != nil {
+		panic("failed to connect database")
 	}
 
-	err := app.Run(os.Args)
-	if err != nil {
-		fmt.Println(err)
-	}
+	db.AutoMigrate(&Coffee{}, &Recipe{})
+	r.GET("/coffees", func(c *gin.Context) {
+		var coffees []Coffee
+		db.Find(&coffees)
+		c.JSON(200, coffees)
+	})
+
+	r.POST("/coffees", func(c *gin.Context) {
+		var coffee Coffee
+		if err := c.ShouldBindJSON(&coffee); err == nil {
+			db.Create(&coffee)
+			c.JSON(200, coffee)
+		} else {
+			c.JSON(400, gin.H{"error": err.Error()})
+		}
+	})
+
+	r.GET("/recipes", func(c *gin.Context) {
+		var recipes []Recipe
+		db.Find(&recipes)
+		c.JSON(200, recipes)
+	})
+
+	r.POST("/recipes", func(c *gin.Context) {
+		var recipe Recipe
+		if err := c.ShouldBindJSON(&recipe); err == nil {
+			db.Create(&recipe)
+			c.JSON(200, recipe)
+		} else {
+			c.JSON(400, gin.H{"error": err.Error()})
+		}
+	})
+
+	r.Run()
 }
