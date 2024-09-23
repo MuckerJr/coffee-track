@@ -1,3 +1,6 @@
+//go:build cli
+// +build cli
+
 package main
 
 import (
@@ -7,9 +10,13 @@ import (
 	"github.com/urfave/cli/v2"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+
+	"coffee-track/models"
 )
 
 func runApp() {
+	models.InitDB()
+
 	app := &cli.App{
 		Name:  "coffee-track",
 		Usage: "Track your coffee consumption and recipes",
@@ -23,8 +30,8 @@ func runApp() {
 						return err
 						// Should I return a panic?
 					}
-					db.AutoMigrate(&Coffee{})
-					coffee := Coffee{Name: c.Args().Get(0), Quantity: c.Int("quantity")}
+					db.AutoMigrate(&models.Coffee{})
+					coffee := models.Coffee{Name: c.Args().Get(0), Quantity: c.Int("quantity")}
 					db.Create(&coffee)
 					fmt.Printf("Coffee added: %s\n", coffee.Name)
 					return nil
@@ -45,7 +52,7 @@ func runApp() {
 					if err != nil {
 						return err
 					}
-					var coffees []Coffee
+					var coffees []models.Coffee
 					db.Find(&coffees)
 					for _, coffee := range coffees {
 						fmt.Printf("ID: %d, Name: %s, Quantity: %d\n", coffee.ID, coffee.Name, coffee.Quantity)
@@ -60,4 +67,8 @@ func runApp() {
 	if err != nil {
 		fmt.Println(err)
 	}
+}
+
+func main() {
+	runApp()
 }

@@ -1,41 +1,28 @@
+//go:build !cli
+// +build !cli
+
 package main
 
 import (
+	"coffee-track/models"
+
 	"github.com/gin-gonic/gin"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
-
-type Coffee struct {
-	ID       uint   `gorm:"primaryKey"`
-	Name     string `json:"name"`
-	Quantity int    `json:"quantity"`
-}
-
-type Recipe struct {
-	ID          uint   `gorm:"primaryKey"`
-	Name        string `json:"name"`
-	Ingredients string `json:"ingredients"`
-}
 
 func main() {
 	r := gin.Default()
-	db, err := gorm.Open(sqlite.Open("coffee.db"), &gorm.Config{})
-	if err != nil {
-		panic("failed to connect database")
-	}
+	models.InitDB()
 
-	db.AutoMigrate(&Coffee{}, &Recipe{})
 	r.GET("/coffees", func(c *gin.Context) {
-		var coffees []Coffee
-		db.Find(&coffees)
+		var coffees []models.Coffee
+		models.DB.Find(&coffees)
 		c.JSON(200, coffees)
 	})
 
 	r.POST("/coffees", func(c *gin.Context) {
-		var coffee Coffee
+		var coffee models.Coffee
 		if err := c.ShouldBindJSON(&coffee); err == nil {
-			db.Create(&coffee)
+			models.DB.Create(&coffee)
 			c.JSON(200, coffee)
 		} else {
 			c.JSON(400, gin.H{"error": err.Error()})
@@ -43,15 +30,15 @@ func main() {
 	})
 
 	r.GET("/recipes", func(c *gin.Context) {
-		var recipes []Recipe
-		db.Find(&recipes)
+		var recipes []models.Recipe
+		models.DB.Find(&recipes)
 		c.JSON(200, recipes)
 	})
 
 	r.POST("/recipes", func(c *gin.Context) {
-		var recipe Recipe
+		var recipe models.Recipe
 		if err := c.ShouldBindJSON(&recipe); err == nil {
-			db.Create(&recipe)
+			models.DB.Create(&recipe)
 			c.JSON(200, recipe)
 		} else {
 			c.JSON(400, gin.H{"error": err.Error()})
