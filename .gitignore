@@ -1,0 +1,4 @@
+coffee.db
+vendor/
+*.exe
+*.out
