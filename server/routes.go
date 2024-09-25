@@ -1,15 +1,16 @@
-//go:build !cli
-// +build !cli
-
-package main
+package server
 
 import (
+	"fmt"
+	"os"
+
 	"coffee-track/models"
 
 	"github.com/gin-gonic/gin"
 )
 
-func main() {
+func RunServer() {
+	fmt.Println("Starting server...")
 	r := gin.Default()
 	models.InitDB()
 
@@ -29,21 +30,8 @@ func main() {
 		}
 	})
 
-	r.GET("/recipes", func(c *gin.Context) {
-		var recipes []models.Recipe
-		models.DB.Find(&recipes)
-		c.JSON(200, recipes)
-	})
-
-	r.POST("/recipes", func(c *gin.Context) {
-		var recipe models.Recipe
-		if err := c.ShouldBindJSON(&recipe); err == nil {
-			models.DB.Create(&recipe)
-			c.JSON(200, recipe)
-		} else {
-			c.JSON(400, gin.H{"error": err.Error()})
-		}
-	})
-
-	r.Run()
+	if err := r.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Server Error: %v\n", err)
+		os.Exit(1)
+	}
 }

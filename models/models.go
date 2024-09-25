@@ -5,19 +5,17 @@ import (
 	"gorm.io/gorm"
 )
 
+var DB *gorm.DB
+
 type Coffee struct {
 	ID       uint   `gorm:"primaryKey"`
-	Name     string `json:"name"`
-	Quantity int    `json:"quantity"`
+	Name     string `gorm:"not null"`
+	Size     string `gorm:"not null"`
+	Quantity string `gorm:"not null"`
+	Vendor   string
+	Roast    string `gorm:"not null"`
+	Grind    string `gorm:"not null"`
 }
-
-type Recipe struct {
-	ID          uint   `gorm:"primaryKey"`
-	Name        string `json:"name"`
-	Ingredients string `json:"ingredients"`
-}
-
-var DB *gorm.DB
 
 func InitDB() {
 	var err error
@@ -25,6 +23,4 @@ func InitDB() {
 	if err != nil {
 		panic("failed to connect database")
 	}
-
-	DB.AutoMigrate(&Coffee{}, &Recipe{})
 }
