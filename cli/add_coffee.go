@@ -3,118 +3,98 @@ package cli
 import (
 	"fmt"
 	"os"
-	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
+	"github.com/charmbracelet/huh"
 
 	"coffee-track/models"
 )
 
-type formModel struct {
-	fieldIndex int
-	fields     []string
-	values     map[string]string
-	quitting   bool
-	submitted  bool
-}
+// type Coffee struct {
+// 	name     string
+// 	size     string
+// 	quantity string
+// 	vendor   string
+// 	roast    Roast
+// 	grind    Grind
+// }
 
-func intitialFormModel() formModel {
-	fields := []string{"Name", "Size (grams)", "Quantity", "Vendor (optional)", "Roast (light, medium, dark)", "Grind (whole-bean, ground)"}
-	values := make(map[string]string)
-	for _, f := range fields {
-		values[f] = ""
-	}
-	return formModel{fields: fields, values: values}
-}
+// type Roast int
 
-func (m formModel) Init() tea.Cmd {
-	return nil
-}
+// const (
+// 	Light Roast = iota + 1
+// 	Medium
+// 	Dark
+// )
 
-func (m formModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "q":
-			m.quitting = true
-			return m, tea.Quit
-		case "enter":
-			if m.fieldIndex < len(m.fields)-1 {
-				m.fieldIndex++
-			} else {
-				m.submitted = true
-				return m, tea.Quit
-			}
-		case "backspace":
-			if len(m.values[m.fields[m.fieldIndex]]) > 0 {
-				m.values[m.fields[m.fieldIndex]] = m.values[m.fields[m.fieldIndex]][:len(m.values[m.fields[m.fieldIndex]])-1]
-			}
-		default:
-			m.values[m.fields[m.fieldIndex]] += msg.String()
-		}
-	}
+// func (r Roast) String() string {
+// 	switch r {
+// 	case Light:
+// 		return "Light"
+// 	case Medium:
+// 		return "Medium"
+// 	case Dark:
+// 		return "Dark"
+// 	default:
+// 		return "Unknown"
+// 	}
+// }
 
-	return m, nil
-}
+// type Grind int
 
-func (m formModel) View() string {
-	if m.quitting {
-		return "Goodbye!"
-	}
-	if m.submitted {
-		return "Coffee Submitted!\n"
-	}
+// const (
+// 	Wholebean Grind = iota + 1
+// 	Ground
+// )
 
-	var b strings.Builder
-	b.WriteString("Add Coffee\n\n")
-	for i, field := range m.fields {
-		if i == m.fieldIndex {
-			b.WriteString(fmt.Sprintf("> %s: %s\n", field, m.values[field]))
-		} else {
-			b.WriteString(fmt.Sprintf("  %s: %s\n", field, m.values[field]))
-		}
-	}
-	return b.String()
-}
+// func (g Grind) String() string {
+// 	switch g {
+// 	case Wholebean:
+// 		return "Wholebean"
+// 	case Ground:
+// 		return "Ground"
+// 	default:
+// 		return "Unknown"
+// 	}
+// }
 
 func runAddCoffeeForm() {
-	p := tea.NewProgram(intitialFormModel())
-	m, err := p.Run()
-	if err != nil {
+	var coffee models.Coffee
+	form := huh.NewForm(
+		huh.NewGroup(huh.NewNote().Title("Add Coffee").Description("Add a new coffee to your inventory").Next(true).NextLabel("Next")),
+		huh.NewGroup(
+			huh.NewInput().Title("Name").Prompt("Enter coffee name").Validate(ValidateNonEmpty),
+			huh.NewInput().Title("Size").Prompt("Amount of coffee in grams").Validate(ValidateNonEmpty),
+			huh.NewInput().Title("Quantity").Prompt("Number of bags").Validate(ValidateNonEmpty),
+			huh.NewInput().Title("Vendor").Prompt("From whom did you purchase this coffee").Validate(ValidateNonEmpty),
+			huh.NewSelect[models.Roast]().Title("Roast").Options(
+				huh.NewOption("Light", models.Light).Selected(true),
+				huh.NewOption("Medium", models.Medium),
+				huh.NewOption("Dark", models.Dark),
+			),
+			huh.NewSelect[models.Grind]().Title("Grind").Options(
+				huh.NewOption("Wholebean", models.Wholebean).Selected(true),
+				huh.NewOption("Ground", models.Ground),
+			),
+		),
+	)
+
+	if err := form.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 
-	if m, ok := m.(formModel); ok && m.submitted {
-		addCoffee(m.values)
-	} else {
-		fmt.Println("Form not submitted")
-	}
+	addCoffee(&coffee)
 }
 
-func addCoffee(values map[string]string) {
+func addCoffee(coffee *models.Coffee) {
 	fmt.Println("Adding coffee...")
-	db, err := gorm.Open(sqlite.Open("coffee.db"), &gorm.Config{})
-	if err != nil {
+
+	models.InitDB()
+
+	if err := models.DB.Create(coffee).Error; err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
+	} else {
+		fmt.Println("Coffee Added!")
 	}
-
-	coffee := models.Coffee{
-		Name:     values["Name"],
-		Size:     values["Size (grams)"],
-		Quantity: values["Quantity"],
-		Vendor:   values["Vendor (optional)"],
-		Roast:    values["Roast (light, medium, dark)"],
-		Grind:    values["Grind (whole-bean, ground)"],
-	}
-
-	if err := db.Create(&coffee).Error; err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Println("Coffee added!")
 }
