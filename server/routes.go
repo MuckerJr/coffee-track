@@ -1,37 +1,42 @@
 package server
 
 import (
-	"fmt"
-	"os"
-
-	"coffee-track/models"
+	"coffee-track/handlers"
 
 	"github.com/gin-gonic/gin"
 )
 
-func RunServer() {
-	fmt.Println("Starting server...")
-	r := gin.Default()
-	models.InitDB()
+func InitRouter() *gin.Engine {
+	router := gin.Default()
 
-	r.GET("/coffees", func(c *gin.Context) {
-		var coffees []models.Coffee
-		models.DB.Find(&coffees)
-		c.JSON(200, coffees)
-	})
+	// Middleware for logging
+	router.Use(gin.Logger())
+	router.Use(gin.Recovery())
 
-	r.POST("/coffees", func(c *gin.Context) {
-		var coffee models.Coffee
-		if err := c.ShouldBindJSON(&coffee); err == nil {
-			models.DB.Create(&coffee)
-			c.JSON(200, coffee)
-		} else {
-			c.JSON(400, gin.H{"error": err.Error()})
-		}
-	})
+	// Coffee Routes
+	router.GET("/coffees", handlers.GetCoffees)          // Get all coffees
+	router.POST("/coffees", handlers.CreateCoffee)       // Create a coffee
+	router.GET("/coffees/:id", handlers.GetCoffee)       // Get a coffee by ID
+	router.PUT("/coffees/:id", handlers.UpdateCoffee)    // Update a coffee by ID
+	router.DELETE("/coffees/:id", handlers.DeleteCoffee) // Delete a coffee by ID
 
-	if err := r.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "Server Error: %v\n", err)
-		os.Exit(1)
-	}
+	// CoffeeDetail endpoints
+	router.POST("/coffees/:id/details", handlers.CreateCoffeeDetail)
+	router.GET("/coffees/:id/details", handlers.GetCoffeeDetails)
+
+	// Recipe endpoints
+	router.GET("/recipes", handlers.GetRecipes)
+	router.POST("/recipes", handlers.CreateRecipe)
+	router.GET("/recipes/:id", handlers.GetRecipe)
+	router.PUT("/recipes/:id", handlers.UpdateRecipe)
+	router.DELETE("/recipes/:id", handlers.DeleteRecipe)
+
+	// Brew endpoints
+	router.GET("/brews", handlers.GetBrews)
+	router.POST("/brews", handlers.CreateBrew)
+	router.GET("/brews/:id", handlers.GetBrew)
+	router.PUT("/brews/:id", handlers.UpdateBrew)
+	router.DELETE("/brews/:id", handlers.DeleteBrew)
+
+	return router
 }
