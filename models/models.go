@@ -119,11 +119,11 @@ type Coffee struct {
 }
 
 type CoffeeDetail struct {
-	ID       uint   `gorm:"primaryKey;autoIncrement"`
-	CoffeeID uint   `gorm:"not null"`
-	Size     string `gorm:"not null"`
-	Grind    Grind  `gorm:"not null"`
-	Roast    Roast  `gorm:"not null"`
+	ID       uint     `gorm:"primaryKey;autoIncrement"`
+	CoffeeID uint     `gorm:"not null"`
+	Size     []string `gorm:"not null"`
+	Grind    Grind    `gorm:"not null"`
+	Roast    Roast    `gorm:"not null"`
 }
 
 type Recipe struct {

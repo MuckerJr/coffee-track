@@ -21,8 +21,8 @@ func InitRouter() *gin.Engine {
 	router.DELETE("/coffees/:id", handlers.DeleteCoffee) // Delete a coffee by ID
 
 	// CoffeeDetail endpoints
-	router.POST("/coffees/:id/details", handlers.CreateCoffeeDetail)
-	router.GET("/coffees/:id/details", handlers.GetCoffeeDetails)
+	router.POST("/coffees/:id/details", handlers.CreateCoffeeDetail) // Create a coffee detail
+	router.GET("/coffees/:id/details", handlers.GetCoffeeDetails)    // Get all coffee details for a coffee
 
 	// Recipe endpoints
 	router.GET("/recipes", handlers.GetRecipes)
