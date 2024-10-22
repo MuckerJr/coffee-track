@@ -8,115 +8,105 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-// Coffee Handlers
-func GetCoffees(c *gin.Context) {
-	var coffees []models.Coffee
-	if err := models.DB.Preload("Details").Find(&coffees).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, coffees)
-}
-
-func CreateCoffee(c *gin.Context) {
+// CreateCoffee creates a new coffee type blueprint
+func createCoffee(c *gin.Context) {
 	var newCoffee models.Coffee
 	if err := c.ShouldBindJSON(&newCoffee); err != nil {
-		// If binding fails, respond with a 400 and detailed error messages
 		var validationErrors gin.H
 		if errs, ok := err.(validator.ValidationErrors); ok {
-			validationErrors = make(gin.H)
-			for _, fieldErr := range errs {
-				validationErrors[fieldErr.Field()] = fieldErr.Error()
+			validationErrors = gin.H{}
+			for _, e := range errs {
+				validationErrors[e.Field()] = e.Tag()
 			}
 		} else {
-			validationErrors = gin.H{"json": err.Error()}
+			validationErrors = gin.H{"error": err.Error()}
 		}
 		c.JSON(http.StatusBadRequest, validationErrors)
 		return
 	}
 
-	// No errors, proceed to create the coffee
-	var existingCoffee models.Coffee
-	if err := models.DB.Preload("Details").Where("name = ? AND vendor = ?", newCoffee.Name, newCoffee.Vendor).First(&existingCoffee).Error; err == nil {
-		// If the coffee already exists, increment the quantity and merge details
-		existingCoffee.Quantity += newCoffee.Quantity
-
-		for _, newDetail := range newCoffee.Details {
-			found := false
-			for i, existingDetail := range existingCoffee.Details {
-				if existingDetail.Grind == newDetail.Grind && existingDetail.Roast == newDetail.Roast {
-					// Merge sizes if grind and roast match (maybe not)
-					existingCoffee.Details[i].Size = mergeSizes(existingDetail.Size, newDetail.Size)
-					found = true
-					break
-				}
-			}
-			if !found {
-				// Add new detail if not found
-				existingCoffee.Details = append(existingCoffee.Details, newDetail)
-			}
-		}
-
-		if err := models.DB.Save(&existingCoffee).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		c.JSON(http.StatusOK, existingCoffee)
-		return
-	} else {
-		// Coffee does not exist, create a new entry
-		if err := models.DB.Create(&newCoffee).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusOK, newCoffee)
-	}
-
-}
-
-func mergeSizes(existingSizes, newSize []string) []string {
-	for i, size := range existingSizes {
-		if size == newSize[i] {
-			return existingSizes
-		}
-	}
-	return append(existingSizes, newSize[0])
-}
-
-func GetCoffee(c *gin.Context) {
-	id := c.Param("id")
-	var coffee models.Coffee
-	if err := models.DB.Preload("Details").First(&coffee, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Coffee not found"})
-		return
-	}
-	c.JSON(http.StatusOK, coffee)
-}
-
-func UpdateCoffee(c *gin.Context) {
-	id := c.Param("id")
-	var coffee models.Coffee
-	if err := models.DB.First(&coffee, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Coffee not found"})
-		return
-	}
-	if err := c.ShouldBindJSON(&coffee); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	if err := models.DB.Save(&coffee).Error; err != nil {
+	if err := models.DB.Create(&newCoffee).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, coffee)
+	c.JSON(http.StatusCreated, newCoffee)
 }
 
-func DeleteCoffee(c *gin.Context) {
-	id := c.Param("id")
-	if err := models.DB.Delete(&models.Coffee{}, id).Error; err != nil {
+// AddToInventory adds a quantity of coffee to user's inventory
+func addToInventory(c *gin.Context) {
+	var newItem models.InventoryItem
+	if err := c.ShouldBindJSON(&newItem); err != nil {
+		var validationErrors gin.H
+		if errs, ok := err.(validator.ValidationErrors); ok {
+			validationErrors = make(gin.H)
+			for _, e := range errs {
+				validationErrors[e.Field()] = e.Error()
+			}
+		} else {
+			validationErrors = gin.H{"error": err.Error()}
+		}
+		c.JSON(http.StatusBadRequest, validationErrors)
+		return
+	}
+
+	var existingItem models.InventoryItem
+	if err := models.DB.Where("user_id =? AND coffee_id = ?", newItem.UserId, newItem.CoffeeID).First(&existingItem).Error; err != nil {
+		// if the item exists, update quant, sizes and grinds
+		existingItem.Quantity += newItem.Quantity
+		existingItem.Sizes = mergeStrings(existingItem.Sizes, newItem.Sizes)
+		existingItem.Grinds = mergeGrinds(existingItem.Grinds, newItem.Grinds)
+
+		if err := models.DB.Save(&existingItem).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, existingItem)
+		return
+	}
+
+	//Item does not exist
+	if err := models.DB.Create(&newItem).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.Status(http.StatusOK)
+	c.JSON(http.StatusCreated, newItem)
+}
+
+// GetInventory returns a user's inv
+func GetInventory(c *gin.Context) {
+	userID := c.Param("user_id")
+	var inventory []models.InventoryItem
+	if err := models.DB.Preload("Coffee").Where("user_id = ?", userID).Find(&inventory).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, inventory)
+}
+
+// mergeString mergers two slices of string, removing duplicates
+func mergeStrings(existing, new []string) []string {
+	existingMap := make(map[string]bool)
+	for _, s := range existing {
+		existingMap[s] = true
+	}
+	for _, s := range new {
+		if !existingMap[s] {
+			existing = append(existing, s)
+		}
+	}
+	return existing
+}
+
+// mergeGrinds merges two slices of Grind, removing duplicates
+func mergeGrinds(existing, new []models.Grind) []models.Grind {
+	existingMap := make(map[models.Grind]bool)
+	for _, g := range existing {
+		existingMap[g] = true
+	}
+	for _, g := range new {
+		if !existingMap[g] {
+			existing = append(existing, g)
+		}
+	}
+	return existing
 }

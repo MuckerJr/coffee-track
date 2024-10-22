@@ -10,6 +10,32 @@ import (
 
 var DB *gorm.DB
 
+type User struct {
+	ID        uint            `gorm:"primaryKey;autoIncrement"`
+	Username  string          `gorm:"unique;not null"`
+	Email     string          `gorm:"unique;not null"`
+	Password  string          `gorm:"not null"`
+	Inventory []InventoryItem `gorm:"foreignKey:UserID"`
+}
+
+type Coffee struct {
+	ID     uint    `gorm:"primaryKey;autoIncrement"`
+	Name   string  `gorm:"not null"`
+	Vendor string  `gorm:"not null"`
+	Roast  Roast   `gorm:"not null"`
+	Rating *int    `gorm:""`
+	Link   *string `gorm:""`
+}
+
+type InventoryItem struct {
+	ID       uint     `gorm:"primaryKey;autoIncrement"`
+	UserId   uint     `gorm:"not null"`
+	CoffeeID uint     `gorm:"not null"`
+	Quantity int      `gorm:"not null"`
+	Sizes    []string `gorm:"not null"`
+	Grinds   []Grind  `gorm:"not null"`
+}
+
 type Roast int
 
 const (
@@ -108,22 +134,6 @@ func (g *Grind) UnmarshalJSON(data []byte) error {
 		return errors.New("invalid grind")
 	}
 	return nil
-}
-
-type Coffee struct {
-	ID       uint           `gorm:"primaryKey;autoIncrement"`
-	Name     string         `gorm:"not null"`
-	Vendor   string         `gorm:"not null"`
-	Quantity int            `gorm:"not null;default:0"`
-	Details  []CoffeeDetail `gorm:"foreignKey:CoffeeID"`
-}
-
-type CoffeeDetail struct {
-	ID       uint     `gorm:"primaryKey;autoIncrement"`
-	CoffeeID uint     `gorm:"not null"`
-	Size     []string `gorm:"not null"`
-	Grind    Grind    `gorm:"not null"`
-	Roast    Roast    `gorm:"not null"`
 }
 
 type Recipe struct {

@@ -5,19 +5,25 @@ import (
 	"coffee-track/server"
 	"log"
 
+	"github.com/joho/godotenv"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 func main() {
+	// Load environment variables
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Failed to load environment variables: %v", err)
+	}
+
 	// Initialize the database
-	var err error
 	models.DB, err = gorm.Open(sqlite.Open("coffee.db"), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	// Migrate the schema
-	err = models.DB.AutoMigrate(&models.Coffee{}, &models.CoffeeDetail{}, &models.Recipe{}, &models.Brew{})
+	err = models.DB.AutoMigrate(&models.Coffee{}, &models.User{}, &models.Recipe{}, &models.Brew{}, &models.InventoryItem{})
 	if err != nil {
 		log.Fatalf("Failed to migrate schema: %v", err)
 	}
